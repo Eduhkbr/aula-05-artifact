@@ -91,9 +91,6 @@ jobs:
         with:
           name: linux
 
-      - name: Make artifact executable
-        run: chmod +x ./${{ env.FILE_NAME }}
-
       - name: Run script
         run: |
           source ./run.sh
