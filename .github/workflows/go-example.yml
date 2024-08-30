@@ -9,42 +9,64 @@ on:
 
 env:
   FILE_NAME: 'hello-server'
+  GO_VERSION: '1.20'
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Build for Linux
-        run: go build $FILE_NAME.go
+        run: go build -o ${{ env.FILE_NAME }} ${{ env.FILE_NAME }}.go
 
-      - name: Build for Windows
-        run: GOOS=windows GOARCH=amd64 go build $FILE_NAME.go
-
-      - name: Upload artifact for linux
-        uses: actions/upload-artifact@v1.0.0
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v3
         with:
           name: linux
-          path: ./${{ env.FILE_NAME }}
+          path: ${{ env.FILE_NAME }}
 
-      - name: Upload artifact for windows
-        uses: actions/upload-artifact@v1.0.0
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build for Windows
+        run: go build -o ${{ env.FILE_NAME }}.exe ${{ env.FILE_NAME }}.go
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v3
         with:
           name: windows
-          path: ./${{ env.FILE_NAME }}.exe
+          path: ${{ env.FILE_NAME }}.exe
+
+  lint_and_test:
+    runs-on: ubuntu-latest
+    needs: build-linux
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.8  # Escolha a versão do Python desejada
+          python-version: 3.8
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt  # Se você tiver um arquivo requirements.txt
-
-      - name: Lint with Flake8
+      - name: Install dependencies and run linting
         run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install flake8
           flake8 .
 
@@ -52,35 +74,34 @@ jobs:
         run: pytest --junitxml=test-results.xml
 
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: test-results.xml
+
   download-and-run-linux:
     runs-on: ubuntu-latest
-    needs: build-go
+    needs: build-linux
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Download Linux Artifact
+      - name: Download Linux artifact
         uses: actions/download-artifact@v3
         with:
           name: linux
-          path: ./
 
       - name: Run script
         run: source ./run.sh
 
   download-only-windows:
     runs-on: windows-latest
-    needs: build-go
+    needs: build-windows
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Download Windows Artifact
+      - name: Download Windows artifact
         uses: actions/download-artifact@v3
         with:
           name: windows
-          path: ./
