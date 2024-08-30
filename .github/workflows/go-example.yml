@@ -13,35 +13,53 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            extension: ''
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            extension: '.exe'
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Build for Linux
-        run: go build $FILE_NAME.go
-
-      - name: Build for Windows
-        run: GOOS=windows GOARCH=amd64 go build $FILE_NAME.go
-
-      - name: Upload artifact for linux
-        uses: actions/upload-artifact@v1.0.0
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          name: linux
-          path: ./${{ env.FILE_NAME }}
+          go-version: 1.20
 
-      - name: Upload artifact for windows
-        uses: actions/upload-artifact@v1.0.0
+      - name: Build
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ${{ env.FILE_NAME }}${{ matrix.extension }} ${{ env.FILE_NAME }}.go
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: windows
-          path: ./${{ env.FILE_NAME }}.exe
+          name: ${{ matrix.os }}
+          path: ./${{ env.FILE_NAME }}${{ matrix.extension }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.8  # Escolha a versão do Python desejada
+          python-version: 3.8
 
       - name: Install dependencies
-        run: pip install -r requirements.txt  # Se você tiver um arquivo requirements.txt
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Lint with Flake8
         run: |
@@ -52,7 +70,7 @@ jobs:
         run: pytest --junitxml=test-results.xml
 
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: test-results.xml
